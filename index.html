@@ -7,6 +7,20 @@
             content="width=device-width, initial-scale=1.0"
         />
         <title>Clawdown</title>
+        <meta name="description" content="Write markdown, get styled PDFs. Client-side, no data leaves your browser." />
+
+        <!-- Open Graph (Discord, Slack, iMessage, etc.) -->
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Clawdown" />
+        <meta property="og:description" content="Write markdown, get styled PDFs. Client-side, no data leaves your browser." />
+        <meta property="og:image" content="https://clawdev.app/assets/preview.jpeg" />
+        <meta property="og:url" content="https://clawdev.app" />
+
+        <!-- Twitter / X card -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Clawdown" />
+        <meta name="twitter:description" content="Write markdown, get styled PDFs. Client-side, no data leaves your browser." />
+        <meta name="twitter:image" content="https://clawdev.app/assets/preview.jpeg" />
 
         <!-- Google Fonts: JetBrains Mono, Lora, DM Sans -->
         <link
@@ -53,28 +67,56 @@
                 <span class="app-name"
                     ><span class="app-name-accent">Claw</span>down</span
                 >
+                <div id="settings-wrap">
+                    <button
+                        id="settings-btn"
+                        class="icon-btn"
+                        aria-label="Settings"
+                        aria-expanded="false"
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    </button>
+                    <div id="settings-panel" class="settings-panel">
+                        <button id="line-num-toggle" class="settings-row" data-active="true">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="3" y="7" font-size="7" fill="currentColor" stroke="none" font-family="sans-serif">1</text><text x="3" y="13" font-size="7" fill="currentColor" stroke="none" font-family="sans-serif">2</text><text x="3" y="19" font-size="7" fill="currentColor" stroke="none" font-family="sans-serif">3</text></svg>
+                            <span class="settings-label">Line numbers</span>
+                            <span class="settings-dot"></span>
+                        </button>
+                        <button id="clawd-toggle" class="settings-row" data-active="true">
+                            <span id="clawd-btn-icon" aria-hidden="true"></span>
+                            <span class="settings-label">Show Clawds</span>
+                            <span class="settings-dot"></span>
+                        </button>
+                        <button id="reset-btn" class="settings-row settings-danger">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 1 3 6.73"/><path d="M3 22v-6h6"/></svg>
+                            <span class="settings-label">Reset editor</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- mobile tab toggle (hidden on desktop) -->
+            <div id="mobile-tabs" class="mobile-tabs">
+                <button class="mobile-tab active" data-tab="editor">Edit</button>
+                <button class="mobile-tab" data-tab="preview">Preview</button>
             </div>
 
             <div class="toolbar-right">
                 <button
-                    id="clawd-toggle"
-                    class="toggle-btn active"
-                    aria-pressed="true"
-                    aria-label="Toggle Clawd in PDF"
+                    id="download-md-btn"
+                    class="download-btn download-md"
+                    aria-label="Download as Markdown"
                 >
-                    <span
-                        id="clawd-btn-icon"
-                        aria-hidden="true"
-                    ></span>
-                    <span class="toggle-label">in PDF</span>
-                    <span class="toggle-dot"></span>
+                    <span class="btn-label">Download MD</span>
+                    <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </button>
                 <button
                     id="download-btn"
                     class="download-btn"
                     aria-label="Download as PDF"
                 >
-                    Download PDF
+                    <span class="btn-label">Download PDF</span>
+                    <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 </button>
             </div>
         </header>
@@ -86,13 +128,7 @@
                 id="editor-pane"
                 aria-label="Markdown editor"
             >
-                <textarea
-                    id="editor"
-                    spellcheck="false"
-                    autocorrect="off"
-                    autocapitalize="off"
-                    placeholder="Write your markdown here..."
-                ></textarea>
+                <div id="editor"></div>
             </section>
 
             <!-- divider -->
@@ -110,26 +146,64 @@
             </section>
         </main>
 
-        <!-- floating feedback button -->
-        <a
-            id="feedback-fab"
-            href="https://app.youform.com/forms/wvdaxjhc"
-            target="_blank"
-            rel="noopener"
-            aria-label="Feedback"
-        >
+        <!-- floating clawd menu -->
+        <div id="clawd-fab">
             <span
                 id="fab-clawd"
                 aria-hidden="true"
             ></span>
+            <div class="fab-links">
+                <a
+                    href="https://app.youform.com/forms/wvdaxjhc"
+                    target="_blank"
+                    rel="noopener"
+                    >feedback?</a
+                >
+                <span class="fab-dot"></span>
+                <a
+                    href="https://ko-fi.com/gshreyan"
+                    id="kofi-trigger"
+                    >buy clawd a snack</a
+                >
+            </div>
+        </div>
 
-            <span class="fab-label">Feedback?</span>
-        </a>
+        <!-- Ko-fi modal -->
+        <div
+            id="kofi-modal"
+            hidden
+        >
+            <div id="kofi-backdrop"></div>
+            <div id="kofi-panel">
+                <button
+                    id="kofi-close"
+                    aria-label="Close"
+                >
+                    &times;
+                </button>
+                <iframe
+                    src="https://ko-fi.com/gshreyan/?hidefeed=true&widget=true&embed=true"
+                    title="Buy clawd a snack"
+                ></iframe>
+            </div>
+        </div>
+
+        <!-- Reset confirm modal -->
+        <div id="reset-modal" hidden>
+            <div id="reset-backdrop"></div>
+            <div id="reset-dialog">
+                <p>Reset editor to default content?</p>
+                <div class="reset-actions">
+                    <button id="reset-cancel">Cancel</button>
+                    <button id="reset-confirm">Reset</button>
+                </div>
+            </div>
+        </div>
 
         <!-- CDN scripts (order matters — globals used by app.js) -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/marked@13/marked.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-        <script src="app.js"></script>
+        <script type="module" src="app.js"></script>
     </body>
 </html>

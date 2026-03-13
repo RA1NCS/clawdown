@@ -1,7 +1,3 @@
-![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)
-![Made with Vanilla JS](https://img.shields.io/badge/built%20with-vanilla%20js-orange)
-![No Backend](https://img.shields.io/badge/backend-clawd-orange)
-
 <p align="center">
   <img src="assets/clawd.svg" alt="Clawd" width="80">
 </p>
@@ -11,41 +7,43 @@
 
 a markdown editor where a pixel cat lives in the margins of your PDFs and silently judges your bullet points.
 
-→ **[clawdown.app](https://clawdown.app)**
+> **[clawdown.app](https://clawdown.app)**
 
 ---
 
-clawd is always watching. every document. every heading hierarchy violation. he sees it all.
-
-the good news: your words never leave your browser. no server, no account, no nonsense. just you, your markdown, and clawd.
+your words never leave your browser. no server, no account, no nonsense. just you, your markdown, and a judgmental pixel cat.
 
 ---
 
 **what you get**
 
 - write markdown, get a beautiful styled PDF instantly
-- syntax-highlighted code blocks with a warm theme
-- tables, blockquotes, full commonmark support
+- real code editor with syntax highlighting and shortcuts
+- resizable split pane, autosave, drag-and-drop import
 - multi-page layout with page numbers
-- clawd peeking from the page borders on every PDF (toggleable. but why would you.)
+- works on mobile
+- clawd peeking from every page border (toggleable. but why would you.)
 
 ---
 
 **coming soon**
 
-- autosave — clawd is tired of watching you lose your work on refresh
-- drag and drop `.md` file import
-- A4 / Letter toggle
-- theme presets
-- MCP server — clawd inception (let claude write into clawdown directly)
-
----
+- MCP server so claude can write into clawdown directly (clawd inception)
+- REST API for the ambitious ones
 
 **clawd approves of feedback**
 
-something broken? feature idea? just want to say hi?
+> [leave feedback](https://app.youform.com/forms/wvdaxjhc)
 
-→ [leave feedback](https://app.youform.com/forms/wvdaxjhc)
+---
+
+**keep clawd fed**
+
+clawd mass-produces PDFs for free. he asks for nothing in return. but he does get hungry.
+
+<a href="https://ko-fi.com/gshreyan">
+  <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="buy clawd a snack on ko-fi">
+</a>
 
 ---
 

@@ -1,3 +1,7 @@
+# Project/system-specific
 CLAUDE.md
+.claude
 .herenow/
+
+# OS/Editor files
 .DS_Store
