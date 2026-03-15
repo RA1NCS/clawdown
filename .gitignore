@@ -1,7 +1,11 @@
 # Project/system-specific
 CLAUDE.md
 .claude
+.cursor
 .herenow/
 
 # OS/Editor files
 .DS_Store
+
+# Dependencies
+node_modules

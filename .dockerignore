@@ -1,0 +1,9 @@
+node_modules
+api/node_modules
+.git
+.claude
+.cursor
+.herenow
+.DS_Store
+*.md
+!api/assets/*.md
