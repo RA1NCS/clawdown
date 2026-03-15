@@ -26,10 +26,78 @@ your words never leave your browser. no server, no account, no nonsense. just yo
 
 ---
 
-**coming soon**
+**for the ambitious ones**
 
-- MCP server so claude can write into clawdown directly (clawd inception)
-- REST API for the ambitious ones
+REST API and MCP server for programmatic access. same styled output, same judgmental cat.
+
+```bash
+# convert markdown to PDF
+curl -X POST https://api.clawdown.app/convert \
+  -H "Content-Type: application/json" \
+  -d '{"markdown": "# hello clawd", "clawds": true}' \
+  -o output.pdf
+```
+
+**MCP server** — let your AI talk to clawd directly. no auth, no setup fuss.
+
+```bash
+# claude code
+claude mcp add --transport http clawdown https://mcp.clawdown.app
+```
+
+<details>
+<summary>other editors</summary>
+
+**Cursor** — add to `.cursor/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "clawdown": {
+      "url": "https://mcp.clawdown.app"
+    }
+  }
+}
+```
+
+**Windsurf** — add to `~/.codeium/windsurf/mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "clawdown": {
+      "serverUrl": "https://mcp.clawdown.app"
+    }
+  }
+}
+```
+
+**VS Code Copilot** — add to `.vscode/mcp.json`:
+```json
+{
+  "servers": {
+    "clawdown": {
+      "type": "http",
+      "url": "https://mcp.clawdown.app"
+    }
+  }
+}
+```
+
+</details>
+
+**MCP tools**
+
+| tool | description |
+|------|-------------|
+| `convert_markdown` | markdown string → download URL (15 min expiry) + page count + file size. optional `clawds` toggle. |
+
+**REST endpoints** — `api.clawdown.app`
+
+| method | path | description |
+|--------|------|-------------|
+| `POST` | `/convert` | `{ "markdown": "...", "clawds": true, "filename": "doc" }` → PDF |
+| `GET` | `/health` | `{ "status": "ok" }` |
+
+---
 
 **clawd approves of feedback**
 
