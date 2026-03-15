@@ -2,7 +2,8 @@
 CLAUDE.md
 .claude
 .cursor
-.herenow/
+.herenow
+.env
 
 # OS/Editor files
 .DS_Store

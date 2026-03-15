@@ -945,6 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Markdown download ──────────────────────────────
     downloadMdBtn.addEventListener('click', () => {
+        if (typeof umami !== 'undefined') umami.track('download-md');
         const h1 = mdOutput.querySelector('h1');
         const filename = h1
             ? h1.textContent
@@ -963,6 +964,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── PDF download ─────────────────────────────────
     downloadBtn.addEventListener('click', async () => {
+        if (typeof umami !== 'undefined') umami.track('download-pdf');
         const original = downloadBtn.innerHTML;
         downloadBtn.disabled = true;
         downloadBtn.innerHTML = '<span class="btn-label">Generating...</span><svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';

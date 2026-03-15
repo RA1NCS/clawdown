@@ -60,7 +60,7 @@ app.get('/.well-known/mcp/server-card.json', (c) =>
             {
                 name: 'convert_markdown',
                 description:
-                    'Convert markdown to a styled PDF. Returns a download URL (15 min expiry), page count, and file size.',
+                    'Convert markdown to a styled PDF. Returns a short download URL, page count, and file size.',
             },
         ],
     }),

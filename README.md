@@ -88,13 +88,14 @@ claude mcp add --transport http clawdown https://mcp.clawdown.app
 
 | tool | description |
 |------|-------------|
-| `convert_markdown` | markdown string → download URL (15 min expiry) + page count + file size. optional `clawds` toggle. |
+| `convert_markdown` | markdown → short download URL + page count + file size. optional `clawds` toggle. |
 
 **REST endpoints** — `api.clawdown.app`
 
 | method | path | description |
 |--------|------|-------------|
 | `POST` | `/convert` | `{ "markdown": "...", "clawds": true, "filename": "doc" }` → PDF |
+| `GET` | `/d/:id` | download a generated PDF by id |
 | `GET` | `/health` | `{ "status": "ok" }` |
 
 ---

@@ -1,8 +1,10 @@
-// REST API routes — POST /convert, GET /health
+// REST API routes — POST /convert, GET /health, GET /d/:id
 import { Hono } from 'hono';
 import { renderHtml } from '../render';
 import { convertToPdf } from '../convert';
 import { stampPdf } from '../stamp';
+import { getPdf } from '../storage';
+import { track } from '../track';
 
 const api = new Hono();
 
@@ -40,6 +42,8 @@ api.post('/convert', async (c) => {
 
     const tTotal = performance.now() - t0;
 
+    track('api-convert', '/convert', { size_kb: Math.round(finalPdf.length / 1024) });
+
     return new Response(finalPdf.buffer as ArrayBuffer, {
         headers: {
             'Content-Type': 'application/pdf',
@@ -48,6 +52,19 @@ api.post('/convert', async (c) => {
             'X-Time-Render': `${tRender.toFixed(0)}ms`,
             'X-Time-Gotenberg': `${tGotenberg.toFixed(0)}ms`,
             'X-Time-Stamp': `${tStamp.toFixed(0)}ms`,
+        },
+    });
+});
+
+// serve a PDF from R2 by id
+api.get('/d/:id', async (c) => {
+    const pdf = await getPdf(`${c.req.param('id')}.pdf`);
+    if (!pdf) return c.json({ error: 'not found or expired' }, 404);
+
+    return new Response(pdf, {
+        headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `inline; filename="${c.req.param('id')}.pdf"`,
         },
     });
 });
