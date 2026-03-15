@@ -379,6 +379,16 @@ body.resizing {
 .page-spacer {
     pointer-events: none;
 }
+/* forced page break — height set by JS */
+.page-break {
+    pointer-events: none;
+}
+/* in PDF, CSS handles the break instead of spacer height */
+#md-output.pdf-export .page-break {
+    height: 0 !important;
+    break-before: page;
+    page-break-before: always;
+}
 /* curved page separators between pages */
 .page-sep {
     position: absolute;

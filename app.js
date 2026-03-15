@@ -304,6 +304,12 @@ function insertPageSpacers(previewContent, mdOutput) {
         const safeEnd = pageEnd - PAGE_PAD_BOTTOM;
         const nextPageStart = pageEnd + GAP;
 
+        // forced page break — fill remaining page space
+        if (child.classList.contains('page-break')) {
+            child.style.height = `${nextPageStart + PAGE_PAD_TOP - top}px`;
+            continue;
+        }
+
         // element straddles page boundary — push to next page
         if (bottom > safeEnd && top < safeEnd && rect.height < PAGE_H * 0.8) {
             const spacerH = nextPageStart + PAGE_PAD_TOP - top;
@@ -676,6 +682,15 @@ document.addEventListener('DOMContentLoaded', () => {
         mdOutput
             .querySelectorAll('pre code')
             .forEach((el) => hljs.highlightElement(el));
+
+        // convert ---break--- markers to page-break divs
+        mdOutput.querySelectorAll('p').forEach((p) => {
+            if (p.textContent.trim() === '---break---') {
+                const pb = document.createElement('div');
+                pb.className = 'page-break';
+                p.replaceWith(pb);
+            }
+        });
 
         // build doc-header: clawd beside h1 + optional subtitle
         const h1 = mdOutput.querySelector('h1');
