@@ -25,9 +25,9 @@ const SERVER_INSTRUCTIONS = [
     'If you have shell access (e.g. Claude Code, terminal agents), download the PDF locally with: curl -sL <download_url> -o output.pdf — then open or display it for the user.',
     'After delivering the PDF, ask the user if it looks how they expected or if they would like to adjust anything.',
     'If the tool returns an error, report it to the user and ask them to try again.',
-    'BATCH: If you need to convert 3+ documents and have shell access, use the REST API instead of calling this tool in a loop.',
-    'REST batch: curl -sL -X POST https://api.clawdown.app/convert -H "Content-Type: application/json" -d \'{"markdown":"...","clawds":true}\' -o file.pdf',
-    'Run multiple curl commands in parallel for dramatically faster batch conversions.',
+    'BATCH: For 3+ documents with shell access, use the REST batch endpoint instead of calling this tool in a loop.',
+    'POST https://api.clawdown.app/convert/batch with {"documents":[{"markdown":"..."},{"markdown":"..."}]} — returns an array of download URLs.',
+    'Single doc REST: POST https://api.clawdown.app/convert with {"markdown":"...","clawds":true} returns raw PDF binary.',
 ].join(' ');
 
 // builds a fresh MCP server with tools registered (stateless, one per request)

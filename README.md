@@ -94,7 +94,8 @@ claude mcp add --transport http clawdown https://mcp.clawdown.app
 
 | method | path | description |
 |--------|------|-------------|
-| `POST` | `/convert` | `{ "markdown": "...", "clawds": true, "filename": "doc" }` → PDF |
+| `POST` | `/convert` | `{ "markdown": "...", "clawds": true, "filename": "doc" }` → PDF binary |
+| `POST` | `/convert/batch` | `{ "documents": [{ "markdown": "...", "clawds": true }] }` → array of download URLs (max 10) |
 | `GET` | `/d/:id` | download a generated PDF by id |
 | `GET` | `/health` | `{ "status": "ok" }` |
 
