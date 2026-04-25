@@ -4,9 +4,11 @@ CLAUDE.md
 .cursor
 .herenow
 .env
+.hippo
 
 # OS/Editor files
 .DS_Store
+Demo Video/
 
 # Dependencies
 node_modules

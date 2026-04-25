@@ -16,6 +16,7 @@ const MAX_MARKDOWN_BYTES = 1_000_000;
 // server-level instructions injected into the LLM's system prompt
 const SERVER_INSTRUCTIONS = [
     'Clawdown converts markdown to styled PDFs.',
+    'Markdown supports inline LaTeX with $...$ and display LaTeX with $$...$$.',
     'Single tool workflow: call convert_markdown once with the full markdown string.',
     'The response contains a download_url, a page_count, and file_size_kb.',
     'On success, fetch the PDF from the download_url and display it inline as a viewable artifact so the user can see it side by side.',
@@ -48,7 +49,7 @@ function createServer() {
                 markdown: z
                     .string()
                     .describe(
-                        'Full markdown string to render. Supports CommonMark: headings, bold, italic, lists, tables, code blocks with syntax highlighting, blockquotes, images, and horizontal rules. Maximum 1MB.',
+                        'Full markdown string to render. Supports CommonMark: headings, bold, italic, lists, tables, code blocks with syntax highlighting, blockquotes, images, horizontal rules, inline math with $...$, and display math with $$...$$. Maximum 1MB.',
                     ),
                 clawds: z
                     .boolean()

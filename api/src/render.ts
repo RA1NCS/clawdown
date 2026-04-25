@@ -1,6 +1,7 @@
 // converts markdown string into a full HTML page ready for Gotenberg
-import { marked } from 'marked';
+import { marked, type Token, type Tokens } from 'marked';
 import hljs from 'highlight.js';
+import katex from 'katex';
 import { clawdSVG } from './clawd';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -33,11 +34,69 @@ const hljsCss = readFileSync(
     'utf-8',
 );
 
+const katexFontsDir = join(
+    import.meta.dir,
+    '..',
+    'node_modules',
+    'katex',
+    'dist',
+    'fonts',
+);
+
+const katexCss = readFileSync(
+    join(import.meta.dir, '..', 'node_modules', 'katex', 'dist', 'katex.min.css'),
+    'utf-8',
+).replace(/url\(fonts\/([^)]+\.woff2)\)/g, (_match, filename: string) => {
+    const font = readFileSync(join(katexFontsDir, filename)).toString('base64');
+    return `url(data:font/woff2;base64,${font})`;
+});
+
 const FONTS_URL =
     'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap';
 
+const codeBlockPattern = /(```[\s\S]*?```|~~~[\s\S]*?~~~)/g;
+const inlineCodePattern = /`[^`\n]+`/g;
+const displayMathPattern = /(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g;
+const inlineMathPattern = /(?<!\\)\$([^\s$][^\n$]*?)(?<!\\)\$/g;
+
+// replaces matched text with placeholders and stores originals
+function protectSegments(markdown: string, pattern: RegExp, segments: string[]): string {
+    return markdown.replace(pattern, (match) => {
+        const token = `@@CLAWDOWN_SEGMENT_${segments.length}@@`;
+        segments.push(match);
+        return token;
+    });
+}
+
+// renders LaTeX math while leaving markdown code intact
+function renderLatex(markdown: string): string {
+    const segments: string[] = [];
+    let next = protectSegments(markdown, codeBlockPattern, segments);
+    next = protectSegments(next, inlineCodePattern, segments);
+
+    next = next.replace(displayMathPattern, (_match, source: string) => {
+        const html = katex.renderToString(source.trim(), {
+            displayMode: true,
+            throwOnError: false,
+        });
+        return `\n\n<div class="math-display">${html}</div>\n\n`;
+    });
+
+    next = next.replace(inlineMathPattern, (_match, source: string) =>
+        katex.renderToString(source.trim(), {
+            displayMode: false,
+            throwOnError: false,
+        }),
+    );
+
+    return next.replace(
+        /@@CLAWDOWN_SEGMENT_(\d+)@@/g,
+        (_match, i: string) => segments[Number(i)] ?? '',
+    );
+}
+
 // extracts h1 + optional subtitle from token list, returns doc-header HTML
-function buildDocHeader(tokens: marked.Token[], clawds: boolean): string {
+function buildDocHeader(tokens: Token[], clawds: boolean): string {
     let h1Index = -1;
     let subtitleIndex = -1;
     let h1Text = '';
@@ -46,9 +105,10 @@ function buildDocHeader(tokens: marked.Token[], clawds: boolean): string {
     // find first h1
     for (let i = 0; i < tokens.length; i++) {
         const t = tokens[i];
-        if (t.type === 'heading' && (t as marked.Tokens.Heading).depth === 1) {
+        if (!t) continue;
+        if (t.type === 'heading' && (t as Tokens.Heading).depth === 1) {
             h1Index = i;
-            h1Text = (t as marked.Tokens.Heading).text;
+            h1Text = (t as Tokens.Heading).text;
             break;
         }
     }
@@ -57,11 +117,12 @@ function buildDocHeader(tokens: marked.Token[], clawds: boolean): string {
     if (h1Index >= 0 && h1Index + 1 < tokens.length) {
         const next = tokens[h1Index + 1];
         if (
+            next &&
             next.type === 'paragraph' &&
-            (next as marked.Tokens.Paragraph).text.length < 144
+            (next as Tokens.Paragraph).text.length < 144
         ) {
             subtitleIndex = h1Index + 1;
-            subtitleText = (next as marked.Tokens.Paragraph).text;
+            subtitleText = (next as Tokens.Paragraph).text;
         }
     }
 
@@ -80,14 +141,14 @@ function buildDocHeader(tokens: marked.Token[], clawds: boolean): string {
 
 // renders markdown to a complete HTML page string
 export function renderHtml(markdown: string, clawds: boolean): string {
-    const tokens = marked.lexer(markdown);
+    const tokens = marked.lexer(renderLatex(markdown));
     const docHeader = buildDocHeader(tokens, clawds);
 
     // convert ---break--- paragraphs to page-break divs (same as app.js)
     for (const token of tokens) {
         if (
             token.type === 'paragraph' &&
-            (token as marked.Tokens.Paragraph).text.trim() === '---break---'
+            (token as Tokens.Paragraph).text.trim() === '---break---'
         ) {
             (token as any).type = 'html';
             (token as any).raw = '<div class="page-break"></div>';
@@ -106,6 +167,7 @@ export function renderHtml(markdown: string, clawds: boolean): string {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="${FONTS_URL}" rel="stylesheet">
 <style>${hljsCss}</style>
+<style>${katexCss}</style>
 <style>${mainCss}</style>
 <style>
 /* server-side overrides — cream bg painted over margin areas in pdf-lib post-processing */
