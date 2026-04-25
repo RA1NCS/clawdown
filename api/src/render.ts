@@ -77,6 +77,7 @@ function renderLatex(markdown: string): string {
     next = next.replace(displayMathPattern, (_match, source: string) => {
         const html = katex.renderToString(source.trim(), {
             displayMode: true,
+            output: 'html',
             throwOnError: false,
         });
         return `\n\n<div class="math-display">${html}</div>\n\n`;
@@ -85,6 +86,7 @@ function renderLatex(markdown: string): string {
     next = next.replace(inlineMathPattern, (_match, source: string) =>
         katex.renderToString(source.trim(), {
             displayMode: false,
+            output: 'html',
             throwOnError: false,
         }),
     );
@@ -199,6 +201,40 @@ html, body {
 }
 /* hide preview-only decorations */
 .page-clawd, .page-sep, .page-num, .page-spacer { display: none; }
+/* cleaner server-side math rendering */
+.katex {
+    color: var(--text-dark);
+    font-size: 1.04em;
+    line-height: 1.15;
+}
+.katex-display {
+    margin: 0.65em 0;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+td .katex {
+    font-size: 0.98em;
+}
+td .katex-display {
+    margin: 0;
+}
+.katex .katex-mathml {
+    clip: rect(0, 0, 0, 0) !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    height: 0 !important;
+    line-height: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    user-select: none !important;
+    width: 0 !important;
+}
+.katex .katex-mathml * {
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+}
 /* page break avoidance — no @page rule, Gotenberg form fields control margins */
 pre, blockquote, table, img { break-inside: avoid; }
 h1, h2, h3, h4, h5, h6 { break-after: avoid; }
