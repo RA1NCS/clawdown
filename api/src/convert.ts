@@ -17,6 +17,7 @@ export async function convertToPdf(html: string): Promise<ArrayBuffer> {
     form.append('marginRight', '0');
     form.append('printBackground', 'true');
     form.append('emulatedMediaType', 'screen');
+    form.append('generateTaggedPdf', 'true');
     // wait for Google Fonts to load before converting
     form.append('skipNetworkIdleEvent', 'false');
 
