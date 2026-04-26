@@ -1,7 +1,12 @@
 // REST API routes — POST /convert, POST /convert/batch, GET /health, GET /d/:id
 import { Hono } from 'hono';
 import { PDFDocument } from 'pdf-lib';
-import { renderHtml } from '../render';
+import {
+    documentTitle,
+    quoteFilename,
+    renderHtml,
+    type ImageAttachment,
+} from '../render';
 import { convertToPdf } from '../convert';
 import { stampPdf } from '../stamp';
 import { getPdf, uploadPdf } from '../storage';
@@ -10,6 +15,19 @@ import { track } from '../track';
 // batch limits
 const MAX_BATCH_SIZE = 10;
 const MAX_MARKDOWN_BYTES = 1_000_000;
+
+type ConvertRequest = {
+    markdown?: string;
+    clawds?: boolean;
+    filename?: string;
+    images?: ImageAttachment[];
+};
+
+type BatchDocument = {
+    markdown?: string;
+    clawds?: boolean;
+    images?: ImageAttachment[];
+};
 
 const api = new Hono();
 
@@ -23,8 +41,9 @@ api.post('/convert', async (c) => {
     const {
         markdown,
         clawds = true,
-        filename = 'clawdown-export',
-    } = await c.req.json();
+        filename,
+        images = [],
+    } = (await c.req.json()) as ConvertRequest;
 
     if (!markdown || typeof markdown !== 'string') {
         return c.json({ error: 'markdown field is required' }, 400);
@@ -32,7 +51,15 @@ api.post('/convert', async (c) => {
 
     // render markdown → full HTML page
     const t1 = performance.now();
-    const html = renderHtml(markdown, clawds);
+    let html: string;
+    try {
+        html = renderHtml(markdown, clawds, images);
+    } catch (err) {
+        return c.json(
+            { error: err instanceof Error ? err.message : 'invalid images' },
+            400,
+        );
+    }
     const tRender = performance.now() - t1;
 
     // send to Gotenberg → raw PDF
@@ -51,10 +78,12 @@ api.post('/convert', async (c) => {
         size_kb: Math.round(finalPdf.length / 1024),
     });
 
+    const downloadName = quoteFilename(filename || documentTitle(markdown));
+
     return new Response(finalPdf.buffer as ArrayBuffer, {
         headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="${filename}.pdf"`,
+            'Content-Disposition': `attachment; filename="${downloadName}.pdf"`,
             'X-Time-Total': `${tTotal.toFixed(0)}ms`,
             'X-Time-Render': `${tRender.toFixed(0)}ms`,
             'X-Time-Gotenberg': `${tGotenberg.toFixed(0)}ms`,
@@ -66,7 +95,7 @@ api.post('/convert', async (c) => {
 // convert up to 10 documents in one request, all in parallel
 // returns R2 download URLs instead of raw binaries (keeps response small)
 api.post('/convert/batch', async (c) => {
-    const { documents } = await c.req.json();
+    const { documents } = (await c.req.json()) as { documents?: BatchDocument[] };
 
     if (!Array.isArray(documents) || documents.length === 0) {
         return c.json({ error: 'documents array is required' }, 400);
@@ -83,7 +112,7 @@ api.post('/convert/batch', async (c) => {
     // each doc goes through the full pipeline independently
     const results = await Promise.all(
         documents.map(
-            async (doc: { markdown: string; clawds?: boolean }, i: number) => {
+            async (doc: BatchDocument, i: number) => {
                 // validate individually so one bad doc doesn't kill the whole batch
                 if (!doc.markdown || typeof doc.markdown !== 'string') {
                     return { index: i, error: 'markdown field is required' };
@@ -97,7 +126,15 @@ api.post('/convert/batch', async (c) => {
 
                 // render → gotenberg → stamp → upload
                 const clawds = doc.clawds ?? true;
-                const html = renderHtml(doc.markdown, clawds);
+                let html: string;
+                try {
+                    html = renderHtml(doc.markdown, clawds, doc.images ?? []);
+                } catch (err) {
+                    return {
+                        index: i,
+                        error: err instanceof Error ? err.message : 'invalid images',
+                    };
+                }
                 const rawPdf = await convertToPdf(html);
                 const finalPdf = await stampPdf(rawPdf, clawds);
 
@@ -106,11 +143,13 @@ api.post('/convert/batch', async (c) => {
 
                 // upload to R2, return short URL
                 const id = crypto.randomUUID().split('-')[0];
-                await uploadPdf(`${id}.pdf`, finalPdf);
+                const filename = quoteFilename(`${documentTitle(doc.markdown)}.pdf`);
+                await uploadPdf(`${id}.pdf`, finalPdf, filename);
 
                 return {
                     index: i,
                     download_url: `https://api.clawdown.app/d/${id}`,
+                    filename,
                     page_count: pageCount,
                     file_size_kb: Math.round(finalPdf.length / 1024),
                 };
@@ -131,10 +170,12 @@ api.get('/d/:id', async (c) => {
     const pdf = await getPdf(`${c.req.param('id')}.pdf`);
     if (!pdf) return c.json({ error: 'not found or expired' }, 404);
 
-    return new Response(pdf.buffer as ArrayBuffer, {
+    return new Response(pdf.data.buffer as ArrayBuffer, {
         headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `inline; filename="${c.req.param('id')}.pdf"`,
+            'Content-Disposition': pdf.filename
+                ? `inline; filename="${quoteFilename(pdf.filename)}"`
+                : `inline; filename="${c.req.param('id')}.pdf"`,
         },
     });
 });

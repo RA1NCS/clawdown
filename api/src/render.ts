@@ -54,18 +54,166 @@ const katexCss = readFileSync(
 const FONTS_URL =
     'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap';
 
-const codeBlockPattern = /(```[\s\S]*?```|~~~[\s\S]*?~~~)/g;
-const inlineCodePattern = /`[^`\n]+`/g;
+const codeBlockPattern = /(^|\n)(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\2[ \t]*(?=\n|$)/g;
+const inlineCodePattern = /(`+)([^`\n]|`(?!\1))*?\1/g;
 const displayMathPattern = /(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g;
-const inlineMathPattern = /(?<!\\)\$([^\s$][^\n$]*?)(?<!\\)\$/g;
+const inlineMathPattern = /(?<![\\$])\$([^\s$][^\n$]*?)(?<!\\)\$(?!\$)/g;
+const imagePattern =
+    /!\[((?:\\.|[^\]\\\n])*)\]\(((?:<[^>\n]+>|(?:\\.|[^()\s\\]|\([^()\s]*\))+))(?:\s+"((?:\\.|[^"\\])*)")?\)(?:\{width=([^}\n]+)\})?/g;
+
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const ALLOWED_IMAGE_MIMES = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/webp',
+    'image/gif',
+]);
+
+export type ImageAttachment = {
+    name: string;
+    mime_type: string;
+    data: string;
+};
+
+// derives a clean download filename from the first markdown h1
+export function documentTitle(markdown: string, fallback = 'Document - ClawDown'): string {
+    const title = markdown.match(/^#\s+(.+)$/m)?.[1] ?? fallback;
+    const clean = title
+        .replace(/<[^>]*>/g, '')
+        .replace(/[*_`~\[\]()]/g, '')
+        .replace(/[\\/:*?"<>|]+/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return clean || fallback;
+}
+
+// quotes filenames safely for content-disposition
+export function quoteFilename(filename: string): string {
+    return filename.replace(/["\\\r\n]/g, '');
+}
 
 // replaces matched text with placeholders and stores originals
-function protectSegments(markdown: string, pattern: RegExp, segments: string[]): string {
+function protectSegments(
+    markdown: string,
+    pattern: RegExp,
+    segments: string[],
+): string {
     return markdown.replace(pattern, (match) => {
         const token = `@@CLAWDOWN_SEGMENT_${segments.length}@@`;
         segments.push(match);
         return token;
     });
+}
+
+// converts base64 image attachments into data URLs
+function buildImageMap(images: ImageAttachment[]): Map<string, string> {
+    const map = new Map<string, string>();
+    let totalBytes = 0;
+
+    for (const image of images) {
+        if (
+            typeof image.name !== 'string' ||
+            typeof image.mime_type !== 'string' ||
+            typeof image.data !== 'string' ||
+            !image.name ||
+            !image.mime_type ||
+            !image.data
+        ) {
+            throw new Error('image attachments require name, mime_type, and data');
+        }
+        if (!ALLOWED_IMAGE_MIMES.has(image.mime_type)) {
+            throw new Error(`unsupported image MIME type: ${image.mime_type}`);
+        }
+
+        const normalized = image.data.replace(/\s/g, '');
+        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(normalized) || normalized.length % 4 === 1) {
+            throw new Error(`invalid base64 image data: ${image.name}`);
+        }
+
+        const padding = normalized.endsWith('==') ? 2 : normalized.endsWith('=') ? 1 : 0;
+        const bytes = Math.floor((normalized.length * 3) / 4) - padding;
+        totalBytes += bytes;
+        if (totalBytes > MAX_IMAGE_BYTES) {
+            throw new Error('image attachments exceed 20MB limit');
+        }
+
+        map.set(image.name, `data:${image.mime_type};base64,${normalized}`);
+    }
+
+    return map;
+}
+
+// normalizes image attachments and width syntax before markdown parsing
+function renderImages(markdown: string, images: ImageAttachment[]): string {
+    const imageMap = buildImageMap(images);
+    const segments: string[] = [];
+    let protectedMarkdown = protectSegments(markdown, codeBlockPattern, segments);
+    protectedMarkdown = protectSegments(protectedMarkdown, inlineCodePattern, segments);
+
+    const rendered = protectedMarkdown.replace(
+        imagePattern,
+        (
+            _match,
+            alt: string,
+            rawSrc: string,
+            title: string | undefined,
+            rawWidth: string | undefined,
+        ) => {
+            const normalizedSrc = normalizeImageSource(rawSrc);
+            const src = normalizedSrc.startsWith('attachment:')
+                ? imageMap.get(normalizedSrc.slice('attachment:'.length))
+                : normalizedSrc;
+            if (!src) throw new Error(`missing image attachment: ${rawSrc}`);
+
+            const width = normalizeImageWidth(rawWidth);
+            const cleanAlt = unescapeMarkdownText(alt);
+            const cleanTitle = title ? unescapeMarkdownText(title) : '';
+            const titleAttr = cleanTitle
+                ? ` title="${escapeHtmlAttribute(cleanTitle)}"`
+                : '';
+            const styleAttr = width
+                ? ` style="width:${width};max-width:100%;height:auto;"`
+                : '';
+            return `<img src="${escapeHtmlAttribute(src)}" alt="${escapeHtmlAttribute(cleanAlt)}"${titleAttr}${styleAttr}>`;
+        },
+    );
+
+    return rendered.replace(
+        /@@CLAWDOWN_SEGMENT_(\d+)@@/g,
+        (_match, i: string) => segments[Number(i)] ?? '',
+    );
+}
+
+// strips markdown angle brackets and simple escapes from image URLs
+function normalizeImageSource(source: string): string {
+    const next =
+        source.startsWith('<') && source.endsWith('>')
+            ? source.slice(1, -1)
+            : source;
+    return next.replace(/\\([()\]\\])/g, '$1');
+}
+
+// keeps image width values to safe CSS lengths
+function normalizeImageWidth(width?: string): string {
+    if (!width) return '';
+    const next = width.trim();
+    return /^(100|[1-9]?\d)(\.\d+)?%$/.test(next) || /^(\d+(\.\d+)?)px$/.test(next)
+        ? next
+        : '';
+}
+
+// removes markdown escapes from text captured by the image parser
+function unescapeMarkdownText(value: string): string {
+    return value.replace(/\\(.)/g, '$1');
+}
+
+// escapes HTML attributes built outside marked
+function escapeHtmlAttribute(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
 
 // renders LaTeX math while leaving markdown code intact
@@ -142,8 +290,12 @@ function buildDocHeader(tokens: Token[], clawds: boolean): string {
 }
 
 // renders markdown to a complete HTML page string
-export function renderHtml(markdown: string, clawds: boolean): string {
-    const tokens = marked.lexer(renderLatex(markdown));
+export function renderHtml(
+    markdown: string,
+    clawds: boolean,
+    images: ImageAttachment[] = [],
+): string {
+    const tokens = marked.lexer(renderLatex(renderImages(markdown, images)));
     const docHeader = buildDocHeader(tokens, clawds);
 
     // convert ---break--- paragraphs to page-break divs (same as app.js)

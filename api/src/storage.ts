@@ -12,24 +12,37 @@ const s3 = new S3Client({
 
 const bucket = process.env.R2_BUCKET!;
 
+export type StoredPdf = {
+    data: Uint8Array;
+    filename?: string;
+};
+
 // upload PDF to R2
-export async function uploadPdf(key: string, pdf: Uint8Array): Promise<void> {
+export async function uploadPdf(
+    key: string,
+    pdf: Uint8Array,
+    filename?: string,
+): Promise<void> {
     await s3.send(
         new PutObjectCommand({
             Bucket: bucket,
             Key: key,
             Body: pdf,
             ContentType: 'application/pdf',
+            ContentDisposition: filename ? `inline; filename="${filename}"` : undefined,
         }),
     );
 }
 
 // fetch PDF from R2 by key
-export async function getPdf(key: string): Promise<Uint8Array | null> {
+export async function getPdf(key: string): Promise<StoredPdf | null> {
     const res = await s3.send(
         new GetObjectCommand({ Bucket: bucket, Key: key }),
     ).catch(() => null);
 
     if (!res?.Body) return null;
-    return new Uint8Array(await res.Body.transformToByteArray());
+    return {
+        data: new Uint8Array(await res.Body.transformToByteArray()),
+        filename: res.ContentDisposition?.match(/filename="([^"]+)"/)?.[1],
+    };
 }

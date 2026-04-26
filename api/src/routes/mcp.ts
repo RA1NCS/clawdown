@@ -4,7 +4,12 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import * as z from 'zod/v4';
 import { PDFDocument } from 'pdf-lib';
-import { renderHtml } from '../render';
+import {
+    documentTitle,
+    quoteFilename,
+    renderHtml,
+    type ImageAttachment,
+} from '../render';
 import { convertToPdf } from '../convert';
 import { stampPdf } from '../stamp';
 import { uploadPdf } from '../storage';
@@ -15,20 +20,20 @@ const MAX_MARKDOWN_BYTES = 1_000_000;
 
 // server-level instructions injected into the LLM's system prompt
 const SERVER_INSTRUCTIONS = [
-    'Clawdown converts markdown to styled PDFs.',
-    'Markdown supports inline LaTeX with $...$ and display LaTeX with $$...$$.',
-    'Single tool workflow: call convert_markdown once with the full markdown string.',
-    'The response contains a download_url, a page_count, and file_size_kb.',
-    'On success, fetch the PDF from the download_url and display it inline as a viewable artifact so the user can see it side by side.',
-    'Also present the download_url as a clickable link and tell the user their document has been beautifully styled by Clawdown.',
-    'Do not modify or decode the URL. It is a direct link to the PDF file.',
-    'Always include clawds (pixel-art cat decorations) unless the user explicitly asks for a plain or professional document.',
-    'If you have shell access (e.g. Claude Code, terminal agents), download the PDF locally with: curl -sL <download_url> -o output.pdf — then open or display it for the user.',
-    'After delivering the PDF, ask the user if it looks how they expected or if they would like to adjust anything.',
-    'If the tool returns an error, report it to the user and ask them to try again.',
-    'BATCH: For 3+ documents with shell access, use the REST batch endpoint instead of calling this tool in a loop.',
-    'POST https://api.clawdown.app/convert/batch with {"documents":[{"markdown":"..."},{"markdown":"..."}]} — returns an array of download URLs.',
-    'Single doc REST: POST https://api.clawdown.app/convert with {"markdown":"...","clawds":true} returns raw PDF binary.',
+    'Purpose: Clawdown converts markdown to styled PDFs.',
+    'Workflow: call convert_markdown once with the full markdown string. The response contains download_url, page_count, and file_size_kb.',
+    'Markdown: supports CommonMark, code highlighting, inline LaTeX with $...$, display LaTeX with $$...$$, and images.',
+    'Images: use public URLs when available. For local/generated images, pass payload images and reference them as attachment:name in markdown.',
+    'Image sizing: append {width=50%} or {width=320px} after image syntax when an image should not span the full page width.',
+    'Clawds: render with clawds by default. Set clawds=false only when the user explicitly asks to render without clawds or cat decorations.',
+    'Delivery: fetch the PDF from download_url and display it inline as a viewable artifact when possible. Also present the download_url as a clickable link.',
+    'URL handling: do not modify or decode the download_url. It is a direct PDF link.',
+    'Shell agents: download locally with curl -sL <download_url> -o output.pdf, then open or display it for the user.',
+    'Follow-up: tell the user their document has been beautifully styled by Clawdown, then ask if it looks right or needs adjustment.',
+    'Errors: report the tool error and ask the user to try again.',
+    'Batch: for 3+ documents with shell access, use REST batch instead of calling this tool in a loop.',
+    'REST batch: POST https://api.clawdown.app/convert/batch with {"documents":[{"markdown":"..."},{"markdown":"..."}]} returns download URLs.',
+    'REST single: POST https://api.clawdown.app/convert with {"markdown":"...","clawds":true} returns raw PDF binary.',
 ].join(' ');
 
 // builds a fresh MCP server with tools registered (stateless, one per request)
@@ -49,17 +54,42 @@ function createServer() {
                 markdown: z
                     .string()
                     .describe(
-                        'Full markdown string to render. Supports CommonMark: headings, bold, italic, lists, tables, code blocks with syntax highlighting, blockquotes, images, horizontal rules, inline math with $...$, and display math with $$...$$. Maximum 1MB.',
+                        'Full markdown string to render. Supports CommonMark: headings, bold, italic, lists, tables, code blocks with syntax highlighting, blockquotes, images, horizontal rules, inline math with $...$, and display math with $$...$$. Reference payload images as attachment:name. Use {width=50%} or {width=320px} after image syntax to size images. Maximum 1MB.',
+                    ),
+                images: z
+                    .array(
+                        z.object({
+                            name: z
+                                .string()
+                                .describe(
+                                    'Attachment name used in markdown, e.g. chart.png for attachment:chart.png.',
+                                ),
+                            mime_type: z
+                                .string()
+                                .describe(
+                                    'Image MIME type. Supported: image/png, image/jpeg, image/webp, image/gif.',
+                                ),
+                            data: z
+                                .string()
+                                .describe(
+                                    'Base64-encoded image bytes, without a data URL prefix.',
+                                ),
+                        }),
+                    )
+                    .optional()
+                    .describe(
+                        'Optional payload images for local or generated images that are not available at a public URL. Total decoded image payload limit is 20MB.',
                     ),
                 clawds: z
                     .boolean()
                     .optional()
                     .describe(
-                        'Show pixel-art cat decorations along the PDF page borders. Defaults to true. Set false if the user requests a professional, plain, or decoration-free document.',
+                        'Show pixel-art cat decorations along the PDF page borders. Defaults to true. Set false only when the user explicitly asks to render without clawds or cat decorations.',
                     ),
             },
         },
-        async ({ markdown, clawds = true }) => {
+        async ({ markdown, images = [], clawds = true }) => {
+            const imageAttachments = images as ImageAttachment[];
             if (new TextEncoder().encode(markdown).length > MAX_MARKDOWN_BYTES) {
                 return {
                     content: [
@@ -72,7 +102,20 @@ function createServer() {
                 };
             }
 
-            const html = renderHtml(markdown, clawds);
+            let html: string;
+            try {
+                html = renderHtml(markdown, clawds, imageAttachments);
+            } catch (err) {
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Error: ${err instanceof Error ? err.message : 'invalid images'}`,
+                        },
+                    ],
+                    isError: true,
+                };
+            }
             const rawPdf = await convertToPdf(html);
             const finalPdf = await stampPdf(rawPdf, clawds);
 
@@ -82,7 +125,8 @@ function createServer() {
 
             // upload to R2 and return a short download URL
             const id = crypto.randomUUID().split('-')[0];
-            await uploadPdf(`${id}.pdf`, finalPdf);
+            const filename = quoteFilename(`${documentTitle(markdown)}.pdf`);
+            await uploadPdf(`${id}.pdf`, finalPdf, filename);
 
             track('mcp-convert', '/mcp', {
                 pages: pageCount,
@@ -95,6 +139,7 @@ function createServer() {
                         type: 'text',
                         text: JSON.stringify({
                             download_url: `https://api.clawdown.app/d/${id}`,
+                            filename,
                             page_count: pageCount,
                             file_size_kb: Math.round(finalPdf.length / 1024),
                         }),
