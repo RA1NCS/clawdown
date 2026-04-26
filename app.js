@@ -585,6 +585,34 @@ function continueList(view) {
     return true;
 }
 
+// keeps image width values to safe CSS lengths
+function normalizeImageWidth(width) {
+    if (!width) return '';
+    const next = width.trim();
+    return /^(100|[1-9]?\d)(\.\d+)?%$/.test(next) || /^(\d+(\.\d+)?)px$/.test(next)
+        ? next
+        : '';
+}
+
+// applies markdown image width suffixes after marked renders images
+function applyImageSizing(root) {
+    root.querySelectorAll('img').forEach((img) => {
+        const next = img.nextSibling;
+        if (!next || next.nodeType !== Node.TEXT_NODE) return;
+
+        const match = next.textContent.match(/^\{width=([^}\n]+)\}/);
+        if (!match) return;
+
+        const width = normalizeImageWidth(match[1]);
+        if (width) {
+            img.style.width = width;
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+        }
+        next.textContent = next.textContent.slice(match[0].length);
+    });
+}
+
 // ── Init ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     // inject toolbar Clawd
@@ -597,6 +625,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewPane = document.getElementById('preview-pane');
     const downloadBtn = document.getElementById('download-btn');
     const downloadMdBtn = document.getElementById('download-md-btn');
+    const uploadMdBtn = document.getElementById('upload-md-btn');
+    const uploadMdInput = document.getElementById('upload-md-input');
     const mainEl = document.querySelector('main');
     const resizeHandle = document.getElementById('resize-handle');
 
@@ -656,10 +686,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     previewPane.addEventListener('scroll', hideOnActivity);
 
-    // editor content helper — reads from CM view
+    // editor content helpers
     let view;
     function getDoc() {
         return view.state.doc.toString();
+    }
+    function replaceDoc(text) {
+        view.dispatch({
+            changes: { from: 0, to: view.state.doc.length, insert: text },
+        });
+        updatePreview();
+        saveToStorage();
     }
 
     // auto-save setup
@@ -682,6 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mdOutput
             .querySelectorAll('pre code')
             .forEach((el) => hljs.highlightElement(el));
+        applyImageSizing(mdOutput);
 
         // convert ---break--- markers to page-break divs
         mdOutput.querySelectorAll('p').forEach((p) => {
@@ -785,17 +823,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const file = event.dataTransfer?.files[0];
                     if (!file) return false;
                     event.preventDefault();
-                    file.text().then((text) => {
-                        view.dispatch({
-                            changes: {
-                                from: 0,
-                                to: view.state.doc.length,
-                                insert: text,
-                            },
-                        });
-                        updatePreview();
-                        saveToStorage();
-                    });
+                    file.text().then(replaceDoc);
                     return true;
                 },
             }),
@@ -870,11 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('reset-confirm').addEventListener('click', () => {
         resetModal.hidden = true;
-        view.dispatch({
-            changes: { from: 0, to: view.state.doc.length, insert: STARTER },
-        });
-        updatePreview();
-        saveToStorage();
+        replaceDoc(STARTER);
     });
 
     // ── Mobile tab switching ────────────────────────────
@@ -941,6 +965,18 @@ document.addEventListener('DOMContentLoaded', () => {
     resizeHandle.addEventListener('dblclick', () => {
         mainEl.style.gridTemplateColumns = '';
         updateScale();
+    });
+
+    // ── Markdown upload ────────────────────────────────
+    uploadMdBtn.addEventListener('click', () => uploadMdInput.click());
+    uploadMdInput.addEventListener('change', () => {
+        const file = uploadMdInput.files?.[0];
+        if (!file) return;
+        file.text().then((text) => {
+            replaceDoc(text);
+            uploadMdInput.value = '';
+            if (typeof umami !== 'undefined') umami.track('upload-md');
+        });
     });
 
     // ── Markdown download ──────────────────────────────
