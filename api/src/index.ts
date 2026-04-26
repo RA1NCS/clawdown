@@ -76,6 +76,17 @@ const CLAWD_ROTATIONS = [275, 95, 260, 80, 285, 105, 270, 90, 255];
 
 const port = parseInt(process.env.PORT || '8080');
 
+// keepalive ping to Cloud Run Gotenberg every 10 min to avoid cold starts
+const GOTENBERG_URL = process.env.GOTENBERG_URL;
+if (GOTENBERG_URL) {
+    setInterval(
+        () => {
+            fetch(`${GOTENBERG_URL}/health`).catch(() => {});
+        },
+        10 * 60 * 1000,
+    );
+}
+
 initClawdPngs(CLAWD_ROTATIONS).then(() => {
     console.log(`clawdown api ready on :${port}`);
 });
