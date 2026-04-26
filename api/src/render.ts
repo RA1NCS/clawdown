@@ -76,7 +76,10 @@ export type ImageAttachment = {
 };
 
 // derives a clean download filename from the first markdown h1
-export function documentTitle(markdown: string, fallback = 'Document - ClawDown'): string {
+export function documentTitle(
+    markdown: string,
+    fallback = 'Document - ClawDown',
+): string {
     const title = markdown.match(/^#\s+(.+)$/m)?.[1] ?? fallback;
     const clean = title
         .replace(/<[^>]*>/g, '')
@@ -126,11 +129,18 @@ function buildImageMap(images: ImageAttachment[]): Map<string, string> {
         }
 
         const normalized = image.data.replace(/\s/g, '');
-        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(normalized) || normalized.length % 4 === 1) {
+        if (
+            !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized) ||
+            normalized.length % 4 === 1
+        ) {
             throw new Error(`invalid base64 image data: ${image.name}`);
         }
 
-        const padding = normalized.endsWith('==') ? 2 : normalized.endsWith('=') ? 1 : 0;
+        const padding = normalized.endsWith('==')
+            ? 2
+            : normalized.endsWith('=')
+              ? 1
+              : 0;
         const bytes = Math.floor((normalized.length * 3) / 4) - padding;
         totalBytes += bytes;
         if (totalBytes > MAX_IMAGE_BYTES) {
@@ -148,7 +158,11 @@ function renderImages(markdown: string, images: ImageAttachment[]): string {
     const imageMap = buildImageMap(images);
     const segments: string[] = [];
     let protectedMarkdown = protectSegments(markdown, codeBlockPattern, segments);
-    protectedMarkdown = protectSegments(protectedMarkdown, inlineCodePattern, segments);
+    protectedMarkdown = protectSegments(
+        protectedMarkdown,
+        inlineCodePattern,
+        segments,
+    );
 
     const rendered = protectedMarkdown.replace(
         imagePattern,
@@ -388,7 +402,10 @@ td .katex-display {
     line-height: 0 !important;
 }
 /* page break avoidance — no @page rule, Gotenberg form fields control margins */
-pre, blockquote, table, img { break-inside: avoid; }
+pre, blockquote, img { break-inside: avoid; }
+table { break-inside: auto; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; page-break-inside: avoid; }
 h1, h2, h3, h4, h5, h6 { break-after: avoid; }
 </style>
 </head>
